@@ -1,11 +1,14 @@
 from requests_oauthlib import OAuth1
 import requests
 import secrets
+import twitter_secrets
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import sqlite3
 import spotipy.util as util
 import os
+import json
+import tweepy
 
 #call Spotify API
 SPOTIPY_CLIENT_ID = secrets.client_id
@@ -55,7 +58,6 @@ def get_spotify_info(search_terms):
 BASE_URL = "https://itunes.apple.com/search"
 DB_NAME = 'final_project.sqlite'
 
-
 def get_data(url, params=None):
     '''Calls API given a valid API link and returns the json
     representation of the data.
@@ -79,6 +81,7 @@ def get_data(url, params=None):
         exit()
     else:
         return resp
+
 
 def parse_itunes_data(data, artist):
     '''Parses through a dictionary of all data called from the API. Returns
@@ -127,6 +130,7 @@ def parse_itunes_data(data, artist):
             artist_info['albums'] = list(dict.fromkeys(album_names))
             return artist_info
 
+
 def count_data(data, artist):
     '''
     INSERT DOCSTRING
@@ -147,10 +151,34 @@ def count_data(data, artist):
     return final_counts
 
 
-## Call Twitter API
+## Call Twitter API & Return most recent tweet
+TWITTER_BASE_URL = "https://api.twitter.com/1.1/users/search.json"
 
 
+client_key = twitter_secrets.TWITTER_API_KEY
+client_secret = twitter_secrets.TWITTER_API_SECRET
+access_token = twitter_secrets.TWITTER_ACCESS_TOKEN
+access_token_secret = twitter_secrets.TWITTER_ACCESS_TOKEN_SECRET
 
+oauth = OAuth1(client_key,
+            client_secret=client_secret,
+            resource_owner_key=access_token,
+            resource_owner_secret=access_token_secret)
+
+tweepy_auth = tweepy.OAuthHandler(client_key, client_secret)
+tweepy_auth.set_access_token(access_token, access_token_secret)
+
+
+def get_tweet(name):
+    '''
+    INSERT DOCSTRING
+    '''
+    params = 'q=' + name + ''
+    response = requests.get(TWITTER_BASE_URL, params, auth=oauth)
+    results = response.json()
+    recent_tweet = results[0]['status']['text']
+    print(recent_tweet)
+    return recent_tweet
 
 
 ## create SQL database with appropriate schema
@@ -201,6 +229,84 @@ def create_db():
     cur.execute(create_master_table_sql)
     conn.commit()
     conn.close()
+
+
+## define functions for caching
+CACHE_FILENAME = 'artists_cache.json'
+
+def open_cache():
+    ''' Opens the cache file if it exists and loads the JSON into
+    the CACHE_DICT dictionary.
+    if the cache file doesn't exist, creates a new cache dictionary
+    
+    Parameters
+    ----------
+    None
+    
+    Returns
+    -------
+    The opened cache
+    '''
+    try:
+        cache_file = open(CACHE_FILENAME, 'r')
+        cache_contents = cache_file.read()
+        cache_dict = json.loads(cache_contents)
+        cache_file.close()
+    except:
+        cache_dict = {}
+    return cache_dict
+
+
+def save_cache(cache_dict):
+    ''' saves the current state of the cache to disk
+    
+    Parameters
+    ----------
+    cache_dict: dict
+        The dictionary to save
+    
+    Returns
+    -------
+    None
+    '''
+    fw = open(CACHE_FILENAME,"w")
+    fw.write(json.dumps(cache_dict))
+    fw.close()
+
+
+def make_request_with_cache(url, params=None):
+    '''Makes an api request if request is not stored in the cache
+    
+    Parameters
+    -----------
+    url: str
+        url for the API to be called
+    params: dict
+        parameters for the API call
+
+    Returns
+    -------
+    str
+        the text results from the API call
+    '''
+    if params != None:
+        zcode = params
+        url_to_store = url + zcode
+        if url_to_store in CACHE_DICT:
+            print('Using Cache')
+            return CACHE_DICT[url_to_store]
+        else:
+            print('Fetching')
+            if 'spotify' in url:
+                CACHE_DICT[url_to_store] = get_spotify_info(params)
+                save_cache(CACHE_DICT)
+            elif 'itunes' in url:
+                CACHE_DICT[url_to_store] = get_data(url, params="term=" + params + '') 
+                save_cache(CACHE_DICT)
+            elif 'twitter' in url:
+                CACHE_DICT[url_to_store] = make_twitter_request(url, params="term=" + params + '')
+                save_cache(CACHE_DICT)
+            return CACHE_DICT[url_to_store]
 
 
 ## store data from each API call in appropriate format in database
@@ -306,16 +412,19 @@ def insert_master_sql(artist):
 
 ## create plotly & flask output
 
-if __name__ == '__main__':
-    create_db()
-    params = 'Kacey Musgraves'
-    data = get_data(BASE_URL, params="term=" + params + '')
-    data = parse_itunes_data(data, params)
-    data = count_data(data, params)
-    insert_itunes(data)
-    data = get_spotify_info(params)
-    print(data)
-    insert_spotify(data)
-    insert_master_sql(params)
 
+CACHE_DICT = open_cache()
+if __name__ == '__main__':
+    # create_db()
+    # params = 'Bad Suns'
+    # itunes_data = make_request_with_cache('itunes', params)
+    # data = parse_itunes_data(itunes_data, params)
+    # print('itunes data', data)
+    # data = count_data(data, params)
+    # insert_itunes(data)
+    # spotify_data = make_request_with_cache('spotify', params)
+    # print('spotify data', spotify_data)
+    # insert_spotify(spotify_data)
+    # insert_master_sql(params)
+    get_tweet('Obama')
 
