@@ -10,9 +10,6 @@ import os
 import json
 import tweepy
 
-
-##TEST!!! ###
-
 #call Spotify API
 SPOTIPY_CLIENT_ID = secrets.client_id
 SPOTIPY_CLIENT_SECRET = secrets.client_secret
@@ -47,14 +44,6 @@ def get_spotify_info(search_terms):
     song_counts['artist'] = artist
     del song_counts['']
     return song_counts
-    
-        # albums = results['items']
-    # while results['next']:
-    #     results = sp.next(results)
-    #     albums.extend(results['items'])
-
-    # for album in albums:
-    #     print(album['name'])
 
 
 ## Call iTunes API
@@ -172,7 +161,7 @@ tweepy_auth = tweepy.OAuthHandler(client_key, client_secret)
 tweepy_auth.set_access_token(access_token, access_token_secret)
 
 
-def get_tweet(name):
+def get_tweet(url, name):
     '''
     INSERT DOCSTRING
     '''
@@ -307,7 +296,7 @@ def make_request_with_cache(url, params=None):
                 CACHE_DICT[url_to_store] = get_data(url, params="term=" + params + '') 
                 save_cache(CACHE_DICT)
             elif 'twitter' in url:
-                CACHE_DICT[url_to_store] = make_twitter_request(url, params="term=" + params + '')
+                CACHE_DICT[url_to_store] = get_tweet(url, params)
                 save_cache(CACHE_DICT)
             return CACHE_DICT[url_to_store]
 
@@ -337,6 +326,7 @@ def insert_itunes(data):
         )
     conn.commit()
     conn.close()
+
 
 def insert_spotify(data):
     '''
@@ -406,9 +396,6 @@ def insert_master_sql(artist):
     conn.close()
 
 
-
-
-
 ## create interactive user interface
 
 
@@ -416,18 +403,22 @@ def insert_master_sql(artist):
 ## create plotly & flask output
 
 
+
+
+
 CACHE_DICT = open_cache()
 if __name__ == '__main__':
-    # create_db()
-    # params = 'Bad Suns'
-    # itunes_data = make_request_with_cache('itunes', params)
-    # data = parse_itunes_data(itunes_data, params)
-    # print('itunes data', data)
-    # data = count_data(data, params)
-    # insert_itunes(data)
-    # spotify_data = make_request_with_cache('spotify', params)
-    # print('spotify data', spotify_data)
-    # insert_spotify(spotify_data)
-    # insert_master_sql(params)
-    get_tweet('Obama')
+    create_db()
+    params = 'Bad Suns'
+    itunes_data = make_request_with_cache('itunes', params)
+    data = parse_itunes_data(itunes_data, params)
+    print('itunes data', data)
+    data = count_data(data, params)
+    insert_itunes(data)
+    spotify_data = make_request_with_cache('spotify', params)
+    print('spotify data', spotify_data)
+    insert_spotify(spotify_data)
+    insert_master_sql(params)
+    tweet_data = make_request_with_cache('twitter', params)
+    print('twitter data', tweet_data)
 
