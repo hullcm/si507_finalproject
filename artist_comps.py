@@ -8,7 +8,10 @@ import sqlite3
 import spotipy.util as util
 import os
 import json
-import tweepy
+from flask import Flask, render_template, request
+import plotly.graph_objects as go
+
+
 
 #call Spotify API
 SPOTIPY_CLIENT_ID = secrets.client_id
@@ -16,19 +19,26 @@ SPOTIPY_CLIENT_SECRET = secrets.client_secret
 scope = 'user-library-read'
 
 def get_spotify_info(search_terms):
-    # token = util.prompt_for_user_token(username='Chloe Hull', scope=scope,
-    # client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET, redirect_uri=' ')
-    # spotify = spotipy.Spotify(auth=token)
-    # return spotify
-    # os.putenv("SPOTIPY_CLIENT_ID", SPOTIPY_CLIENT_ID)
-    # os.putenv("SPOTIPY_CLIENT_SECRET", SPOTIPY_CLIENT_SECRET)
+    '''Calls spotify artists API and returns information on selected artist.
+    Parses data and returns only relevant data for this application.
+
+    Parameters
+    -----------
+    search_terms: str
+        the string representation of the artist to be searched
+
+    Returns
+    --------
+    dict
+        dictionary containing each album by the artist and the number of songs on each album
+    '''
 
     client_credentials_manager = SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET)
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
     results = sp.search(q='artist:' + search_terms, type='artist')
     artist_uri = results['artists']['items'][0]['uri']
-   
+
     albums = sp.artist_albums(artist_uri, album_type='album')
     song_counts = {}
     album_name = ''
@@ -41,17 +51,38 @@ def get_spotify_info(search_terms):
                 track_total = value
             song_counts[album_name] = track_total
     artist = albums['items'][0]['artists'][0]['name']
-    song_counts['artist'] = artist
+   # song_counts['artist'] = search_terms
+    print('spotify_save_results', song_counts)
     del song_counts['']
     return song_counts
 
+
+def spotify_count_pres(data):
+    '''Generates the count of albums and songs for Spotify results.
+
+    Parameters
+    -----------
+    data: dict
+        the string representation of the artist to be searched
+
+    Returns
+    --------
+    dict
+        dictionary containing each album by the artist and the number of songs on each album
+    '''
+    length = []
+    songs = sum(data.values())
+    length.append(songs)
+    albums = len(data.keys())
+    length.append(albums)
+    return length
 
 ## Call iTunes API
 BASE_URL = "https://itunes.apple.com/search"
 DB_NAME = 'final_project.sqlite'
 
 def get_data(url, params=None):
-    '''Calls API given a valid API link and returns the json
+    '''Calls iTunes API given a valid API link and returns the json
     representation of the data.
 
     Parameters
@@ -65,7 +96,6 @@ def get_data(url, params=None):
     --------
     dict
         The results of the API call represented in a dictionary.
-
     '''
     resp = requests.get(BASE_URL, params = params).json()
     if resp['resultCount'] == 0:
@@ -84,12 +114,13 @@ def parse_itunes_data(data, artist):
     -----------
     data: dict
         The data to be parsed, cleaned, and categorized
+    artist: string
+        The artist the data represents
 
     Returns
     --------
     dict
         A dictionary with key-value pairs for songs, movies, and other media
-
     '''
     songs_list = []
     movies_list = []
@@ -120,15 +151,27 @@ def parse_itunes_data(data, artist):
             final_dict['other'] = other_list
             artist_info['songs'] = list(dict.fromkeys(song_names))
             artist_info['albums'] = list(dict.fromkeys(album_names))
+            artist_info['artist'] = artist
             return artist_info
 
 
 def count_data(data, artist):
-    '''
-    INSERT DOCSTRING
+    '''Generates the count of albums and songs for iTunes results.
+
+    Parameters
+    -----------
+    data: dict
+        the string representation of the artist to be searched
+    artist: string
+        The artist the data represents
+
+    Returns
+    --------
+    dict
+        dictionary containing each album by the artist and the number of songs on each album
     '''
     final_counts = {}
-    final_counts['artist'] = params
+    final_counts['artist'] = artist
     for key, value in data.items():
         count_songs = 0
         count_albums = 0
@@ -143,9 +186,34 @@ def count_data(data, artist):
     return final_counts
 
 
+def itunes_count_for_pres(data):
+    '''Generates the final count of albums and songs for iTunes results for final presentation.
+
+    Parameters
+    -----------
+    data: dict
+        the string representation of the artist to be searched
+
+    Returns
+    --------
+    list
+        list containing each album by the artist and the number of songs on each album
+    '''
+    length = []
+    for key, value in data.items():
+        if key == 'songs':
+            total_songs = len(value)
+            length.append(total_songs)
+        if key == 'albums':
+            count = 0
+            for item in value:
+                count += 1
+            total_albums = count
+            length.append(total_albums)
+    return length
+
 ## Call Twitter API & Return most recent tweet
 TWITTER_BASE_URL = "https://api.twitter.com/1.1/users/search.json"
-
 
 client_key = twitter_secrets.TWITTER_API_KEY
 client_secret = twitter_secrets.TWITTER_API_SECRET
@@ -157,13 +225,19 @@ oauth = OAuth1(client_key,
             resource_owner_key=access_token,
             resource_owner_secret=access_token_secret)
 
-tweepy_auth = tweepy.OAuthHandler(client_key, client_secret)
-tweepy_auth.set_access_token(access_token, access_token_secret)
+def get_tweet(name):
+    '''Calls the Twitter API, searches for the latest tweet by the selected artist,
+    and returns the most recent tweet. 
 
+    Parameters
+    -----------
+    name: string
+        The name of the artist the data represents
 
-def get_tweet(url, name):
-    '''
-    INSERT DOCSTRING
+    Returns
+    --------
+    string
+        the most recent tweet by the selected artist
     '''
     params = 'q=' + name + ''
     response = requests.get(TWITTER_BASE_URL, params, auth=oauth)
@@ -175,9 +249,18 @@ def get_tweet(url, name):
 
 ## create SQL database with appropriate schema
 def create_db():
+    '''Executes the specified query to create the
+    database, the new tables, and close the database connection
+
+    Parameters
+    -----------
+    None
+
+    Returns
+    --------
+    None
     '''
-    INSERT DOCSTRING
-    '''
+
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
@@ -227,9 +310,9 @@ def create_db():
 CACHE_FILENAME = 'artists_cache.json'
 
 def open_cache():
-    ''' Opens the cache file if it exists and loads the JSON into
+    '''Opens the cache file if it exists and loads the JSON into
     the CACHE_DICT dictionary.
-    if the cache file doesn't exist, creates a new cache dictionary
+    If the cache file doesn't exist, creates a new cache dictionary.
     
     Parameters
     ----------
@@ -250,7 +333,7 @@ def open_cache():
 
 
 def save_cache(cache_dict):
-    ''' saves the current state of the cache to disk
+    '''Saves the current state of the cache to disk.
     
     Parameters
     ----------
@@ -267,7 +350,7 @@ def save_cache(cache_dict):
 
 
 def make_request_with_cache(url, params=None):
-    '''Makes an api request if request is not stored in the cache
+    '''Makes an api request if request is not stored in the cache.
     
     Parameters
     -----------
@@ -285,18 +368,26 @@ def make_request_with_cache(url, params=None):
         zcode = params
         url_to_store = url + zcode
         if url_to_store in CACHE_DICT:
-            print('Using Cache')
+            print('Using Cache', url_to_store)
+            print(CACHE_DICT[url_to_store])
             return CACHE_DICT[url_to_store]
         else:
             print('Fetching')
             if 'spotify' in url:
-                CACHE_DICT[url_to_store] = get_spotify_info(params)
+                data = get_spotify_info(params)
+                print('spotify_fetch', data)
+                CACHE_DICT[url_to_store] = data
+                print(CACHE_DICT[url_to_store])
                 save_cache(CACHE_DICT)
             elif 'itunes' in url:
-                CACHE_DICT[url_to_store] = get_data(url, params="term=" + params + '') 
+                data = get_data(url, params="term=" + params + '')
+                data = parse_itunes_data(data, params)
+                print('itunes data: ', data)
+                CACHE_DICT[url_to_store] = data
+                #print(CACHE_DICT[url_to_store])
                 save_cache(CACHE_DICT)
             elif 'twitter' in url:
-                CACHE_DICT[url_to_store] = get_tweet(url, params)
+                CACHE_DICT[url_to_store] = get_tweet(params)
                 save_cache(CACHE_DICT)
             return CACHE_DICT[url_to_store]
 
@@ -304,9 +395,19 @@ def make_request_with_cache(url, params=None):
 ## store data from each API call in appropriate format in database
 # (store "Musician Name", "# of Songs", "# of albums", "# of other media")
 def insert_itunes(data):
+    '''Executes the specified query to insert
+    the query results and close the database connection.
+
+    Parameters
+    -----------
+    data: dict
+        the data to be inserted into the database
+
+    Returns
+    --------
+    None
     '''
-    INSERT DOCSTRING
-    '''
+
     artist_name = data['artist']
     song_count = data['song']
     album_count = data['albums']
@@ -328,17 +429,25 @@ def insert_itunes(data):
     conn.close()
 
 
-def insert_spotify(data):
+def insert_spotify(data, artist_name):
+    '''Executes the specified query to insert
+    the query results and close the database connection.
+
+    Parameters
+    -----------
+    data: dict
+        the data to be inserted into the database
+
+    Returns
+    --------
+    None
     '''
-    INSERT DOCSTRING
-    '''
-    artist_name = data['artist']
     song_count = 0
-    album_count = 0
-    del data['artist']
+    album_count = 0    
     for key, value in data.items():
-        song_count += value
+        print(key, value)
         album_count += 1
+    song_count = sum(data.values())
     insert_spotify_sql = '''
         INSERT INTO Spotify_Artists
         VALUES (Null, ?, ?, ?)
@@ -358,8 +467,17 @@ def insert_spotify(data):
 
 
 def insert_master_sql(artist):
-    '''
-    INSERT DOCSTRING
+    '''Executes the specified query to insert
+    the query results and close the database connection.
+
+    Parameters
+    -----------
+    data: dict
+        the data to be inserted into the database
+
+    Returns
+    --------
+    None
     '''
     # create SQL queries to get IDs and populate master table
     select_spotify_id_sql = '''
@@ -396,29 +514,96 @@ def insert_master_sql(artist):
     conn.close()
 
 
-## create interactive user interface
-
-
-
 ## create plotly & flask output
 
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('home.html') # just the static HTML
+
+@app.route('/handle_form', methods=['POST'])
+def handle_the_form():
+    artist_name = request.form['name']
+    vis_type = request.form['visualization']
+    
+    itunes_data = make_request_with_cache('itunes', artist_name)
+    itunes_data = count_data(itunes_data, artist_name)
+    insert_itunes(itunes_data)
+    spotify_data = make_request_with_cache('spotify', artist_name)
+    insert_spotify(spotify_data, artist_name)
+    spotify_data = spotify_count_pres(spotify_data)
+    insert_master_sql(artist_name)
+    tweet_data = make_request_with_cache('twitter', artist_name)
+    print('itunes: ', itunes_data, 'spotify: ', spotify_data, 'twitter: ', tweet_data)
+    if vis_type == 'plot':
+        y_vals = [itunes_data['song'], spotify_data[0], itunes_data['albums'], spotify_data[1]]
+        x_vals = ['iTunes Songs', 'Spotify Songs', 'iTunes Albums', 'Spotify Albums']
+        data = go.Bar(
+            x=x_vals,
+            y=y_vals
+        )
+        fig = go.Figure(data=data)
+        div = fig.to_html(full_html=False)
+        return render_template('plot.html', plot_div=div, spotify=spotify_data)
+    elif vis_type == 'detail':
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y = ['iTunes', 'Spotify'],
+            x = [itunes_data['song'], spotify_data[0]],
+            name='Song Counts',
+            orientation='h',
+            marker=dict(
+                color='rgba(200, 78, 350, 0.6)',
+                line=dict(color='rgba(200, 78, 139, 1.0)', width=3)
+            )
+        ))
+        fig.add_trace(go.Bar(
+            y = ['iTunes', 'Spotify'],
+            x = [itunes_data['albums'], spotify_data[1]],
+            name='Album Counts',
+            orientation='h',
+            marker=dict(
+                color='rgba(58, 201, 80, 0.6)',
+                line=dict(color='rgba(58, 71, 80, 1.0)', width=3)
+            )
+        ))
+        fig.update_layout(barmode='stack')
+        div = fig.to_html(full_html=False)
+        return render_template('horizplot.html', plot_div=div, spotify=spotify_data)
+    elif vis_type == 'all':
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y = ['iTunes', 'Spotify'],
+            x = [itunes_data['song'], spotify_data[0]],
+            name='Song Counts',
+            orientation='h',
+            marker=dict(
+                color='rgba(200, 78, 350, 0.6)',
+                line=dict(color='rgba(200, 78, 139, 1.0)', width=3)
+            )
+        ))
+        fig.add_trace(go.Bar(
+            y = ['iTunes', 'Spotify'],
+            x = [itunes_data['albums'], spotify_data[1]],
+            name='Album Counts',
+            orientation='h',
+            marker=dict(
+                color='rgba(58, 201, 80, 0.6)',
+                line=dict(color='rgba(58, 71, 80, 1.0)', width=3)
+            )
+        ))
+        fig.update_layout(barmode='stack')
+        div = fig.to_html(full_html=False)
+        return render_template('allinfo.html', artist=artist_name, itunes=itunes_data,
+                spotify=spotify_data, twitter=tweet_data, plot_div=div)
+    else:
+        return render_template('table.html', artist=artist_name, itunes=itunes_data,
+                spotify=spotify_data, twitter=tweet_data)
 
 
-
-
+##run application
 CACHE_DICT = open_cache()
 if __name__ == '__main__':
     create_db()
-    params = 'Bad Suns'
-    itunes_data = make_request_with_cache('itunes', params)
-    data = parse_itunes_data(itunes_data, params)
-    print('itunes data', data)
-    data = count_data(data, params)
-    insert_itunes(data)
-    spotify_data = make_request_with_cache('spotify', params)
-    print('spotify data', spotify_data)
-    insert_spotify(spotify_data)
-    insert_master_sql(params)
-    tweet_data = make_request_with_cache('twitter', params)
-    print('twitter data', tweet_data)
-
+    app.run(debug=True)

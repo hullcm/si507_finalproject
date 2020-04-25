@@ -1,0 +1,32 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF8"/>
+    <title>Artist Coverage: Results</title>
+</head>
+<h1>Artist Comparison Results: Spotify vs. iTunes Coverage</h1>
+<body style='background-color: mediumaquamarine; font-family: Verdana, Geneva, Tahoma, sans-serif;'><br>
+    <h2 style='font-weight: bold;'>The latest tweet by {{artist}} is:</h2>
+    <p> {{twitter}}</p> <br>
+    <p style='font-weight: bold;'>This table displays the number of songs/albums {{artist}} has on each platform.</p>
+    <table style="width:100%">
+        <tr style="border: 1px solid black; background-color: mintcream;font-family: Verdana, Geneva, Tahoma, sans-serif;">
+            <th style="border: 1px solid black;">Artist Name</th>
+            <th style="border: 1px solid black;">Songs in iTunes</th>
+            <th style="border: 1px solid black;">Albums in iTunes</th>
+            <th style="border: 1px solid black;">Songs in Spotify</th>
+            <th style="border: 1px solid black;">Albums in Spotify</th>
+        </tr>
+        <tr style="border: 1px solid black; background-color: mintcream;font-family: Verdana, Geneva, Tahoma, sans-serif;">
+            <td style="border: 1px solid black;">{{artist}}</td>
+            <td style="border: 1px solid black;">{{itunes['song']}}</td>
+            <td style="border: 1px solid black;">{{itunes['albums']}}</td>
+            <td style="border: 1px solid black;">{{spotify[0]}}</td>
+            <td style="border: 1px solid black;">{{spotify[1]}}</td>
+        </tr>
+    </table><br>
+    <p style='font-weight: bold;'>This plot visualizes the above counts in a bar plot.</p>
+    {{ plot_div | safe}}
+</body>
+</html>

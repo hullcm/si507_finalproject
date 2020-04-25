@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf8"/>
+    <title>Artist Coverage Application</title>
+</head>
+<h1>Artist Comparison App: Check coverage on different music platforms</h1>
+</h1>
+<body style='background-color:aliceblue; font-family: Verdana, Geneva, Tahoma, sans-serif;'
+>
+    <form action="/handle_form" method="POST">
+    <p>
+        Which artist would you like to search? <input name="name" type="text"/><br/>
+    </p>
+    <p>
+        How would you like your results displayed? 
+        <select name="visualization">
+            <option value="plot">Simple Plot</option>
+            <option value="detail">Detailed Plot</option>
+            <option value="table">Table</option>
+            <option value="all">All Info</option>
+        </select>
+    </p>
+
+   <input type="submit" value="Submit Form"/>
+  </form>
+</body>
+</html>
