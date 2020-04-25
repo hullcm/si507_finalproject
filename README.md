@@ -2,7 +2,7 @@
 Final Project for SI507
 
 This repo contains code for an "Artist Coverage Application." 
-The application calls the Spotify, iTunes, and Twitter API to collate interesting results for the user, then displays them in a simple UI. 
+The application calls the Spotify, iTunes, and Twitter API to collate the number of songs and albums available on each platform for a given artist. The application collates these results for the user, as well as the most recent tweet by the artist, then displays them in a simple UI. 
 
 Inside the repo you will find the final python file ('artist_comps.py'), as well as the Flask templates used for the UI component. 
 Within the python file, there is code that will create your database for you. 
